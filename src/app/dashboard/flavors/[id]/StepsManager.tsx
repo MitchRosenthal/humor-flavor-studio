@@ -221,6 +221,12 @@ function StepForm({
           placeholder="The prompt sent to the model…"
           className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
         />
+        <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+          <span className="font-semibold text-gray-500 dark:text-gray-400">Template variables:</span>{" "}
+          Use <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded font-mono">{"${step1Output}"}</code> to reference Step 1&apos;s output in later steps,{" "}
+          <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded font-mono">{"${step2Output}"}</code> for Step 2, etc.
+          Step 1 must use step type <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded font-mono">image-description</code> and produce output for downstream steps to chain.
+        </p>
       </div>
 
       <div className="flex gap-2">
@@ -250,6 +256,8 @@ export default function StepsManager({ flavorId, steps, models, inputTypes, outp
   const [error, setError] = useState<string | null>(null);
 
   const maxOrder = steps.length > 0 ? Math.max(...steps.map((s) => s.order_by)) : 0;
+  const minOrder = steps.length > 0 ? Math.min(...steps.map((s) => s.order_by)) : 1;
+  const missingStep1 = steps.length > 0 && minOrder !== 1;
 
   // Lookup maps for display
   const inputTypeMap = Object.fromEntries(inputTypes.map((t) => [t.id, t.description]));
@@ -309,6 +317,33 @@ export default function StepsManager({ flavorId, steps, models, inputTypes, outp
       {error && (
         <div className="mb-4 bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-700 text-red-600 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
+        </div>
+      )}
+
+      {/* Pipeline ordering warning */}
+      {missingStep1 && (
+        <div className="mb-4 flex items-start gap-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg px-4 py-3 text-xs text-amber-700 dark:text-amber-300">
+          <span className="flex-shrink-0 mt-0.5 text-base">⚠️</span>
+          <span>
+            <strong>No Step 1 detected.</strong> The pipeline requires a step with order# 1. Without it, the
+            {" "}<code className="bg-amber-100 dark:bg-amber-800/40 px-1 rounded font-mono">{"${step1Output}"}</code>{" "}
+            template variable will be undefined and all downstream steps will fail with a 502 error.
+            Edit the first step and set its order to <strong>1</strong>.
+          </span>
+        </div>
+      )}
+
+      {/* Pipeline chaining tip */}
+      {steps.length > 0 && (
+        <div className="mb-4 flex items-start gap-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg px-4 py-3 text-xs text-blue-700 dark:text-blue-300">
+          <span className="flex-shrink-0 mt-0.5">💡</span>
+          <span>
+            The pipeline chains step outputs via template variables. Step 1&apos;s output is available as{" "}
+            <code className="bg-blue-100 dark:bg-blue-800/40 px-1 rounded font-mono">{"${step1Output}"}</code>{" "}
+            in later steps&apos; prompts, Step 2&apos;s as{" "}
+            <code className="bg-blue-100 dark:bg-blue-800/40 px-1 rounded font-mono">{"${step2Output}"}</code>, etc.
+            Step 1 should use step type <code className="bg-blue-100 dark:bg-blue-800/40 px-1 rounded font-mono">image-description</code>.
+          </span>
         </div>
       )}
 
