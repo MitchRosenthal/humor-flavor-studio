@@ -28,8 +28,8 @@ export default async function FlavorDetailPage({ params }: { params: Promise<{ i
       .order("name"),
     supabase
       .from("llm_input_types")
-      .select("id, name")
-      .order("name"),
+      .select("id, description, slug")
+      .order("id"),
   ]);
 
   if (!flavor) notFound();

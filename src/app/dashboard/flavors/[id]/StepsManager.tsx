@@ -22,7 +22,8 @@ interface Model {
 
 interface InputType {
   id: number;
-  name: string;
+  description: string;
+  slug: string;
 }
 
 interface Props {
@@ -86,7 +87,7 @@ function StepForm({
           >
             <option value="">— select input type —</option>
             {inputTypes.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
+              <option key={t.id} value={t.id}>{t.description}</option>
             ))}
           </select>
         </div>
@@ -179,7 +180,7 @@ export default function StepsManager({ flavorId, steps, models, inputTypes }: Pr
   const maxOrder = steps.length > 0 ? Math.max(...steps.map((s) => s.order_by)) : 0;
 
   // Build a lookup map for display
-  const inputTypeMap = Object.fromEntries(inputTypes.map((t) => [t.id, t.name]));
+  const inputTypeMap = Object.fromEntries(inputTypes.map((t) => [t.id, t.description]));
 
   const handleCreate = (formData: FormData) => {
     setError(null);
