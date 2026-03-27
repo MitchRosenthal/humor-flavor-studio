@@ -64,31 +64,30 @@ export default function TestRunner({ flavors, accessToken }: Props) {
     setLog([]);
     setCaptions([]);
 
-    const headers = {
+    const authHeaders = {
       Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
     };
+    const contentType = imageFile.type || "image/jpeg";
 
     try {
       // Step 1: Get presigned upload URL
       addLog("info", "Step 1: Requesting presigned upload URL…");
-      const ext = imageFile.name.split(".").pop()?.toLowerCase() ?? "jpg";
-      const contentType = imageFile.type || "image/jpeg";
-
-      const presignRes = await fetch(
-        `${API_BASE}/images/upload-url?file_extension=${ext}`,
-        { method: "GET", headers }
-      );
+      const presignRes = await fetch(`${API_BASE}/pipeline/generate-presigned-url`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({ contentType }),
+      });
       if (!presignRes.ok) {
         const text = await presignRes.text();
         throw new Error(`Presigned URL failed (${presignRes.status}): ${text}`);
       }
-      const presignData = await presignRes.json();
-      const { upload_url, image_id } = presignData;
-      addLog("success", `Got presigned URL. Image ID: ${image_id}`);
+      const { presignedUrl, cdnUrl } = await presignRes.json();
+      addLog("success", "Got presigned URL.");
 
-      // Step 2: Upload image to S3
+      // Step 2: Upload image bytes directly to S3
       addLog("info", "Step 2: Uploading image to S3…");
-      const uploadRes = await fetch(upload_url, {
+      const uploadRes = await fetch(presignedUrl, {
         method: "PUT",
         body: imageFile,
         headers: { "Content-Type": contentType },
@@ -98,28 +97,26 @@ export default function TestRunner({ flavors, accessToken }: Props) {
       }
       addLog("success", "Image uploaded to S3 successfully.");
 
-      // Step 3: Register the image
-      addLog("info", "Step 3: Registering image with the API…");
-      const registerRes = await fetch(`${API_BASE}/images/register`, {
+      // Step 3: Register the image URL with the pipeline
+      addLog("info", "Step 3: Registering image URL with the pipeline…");
+      const registerRes = await fetch(`${API_BASE}/pipeline/upload-image-from-url`, {
         method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ image_id, file_extension: ext }),
+        headers: authHeaders,
+        body: JSON.stringify({ imageUrl: cdnUrl, isCommonUse: false }),
       });
       if (!registerRes.ok) {
         const text = await registerRes.text();
         throw new Error(`Image registration failed (${registerRes.status}): ${text}`);
       }
-      addLog("success", "Image registered successfully.");
+      const { imageId } = await registerRes.json();
+      addLog("success", `Image registered. ID: ${imageId}`);
 
       // Step 4: Generate captions
       addLog("info", `Step 4: Generating captions with flavor ID ${selectedFlavorId}…`);
-      const generateRes = await fetch(`${API_BASE}/captions/generate`, {
+      const generateRes = await fetch(`${API_BASE}/pipeline/generate-captions`, {
         method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          image_id,
-          humor_flavor_id: selectedFlavorId,
-        }),
+        headers: authHeaders,
+        body: JSON.stringify({ imageId, humorFlavorId: selectedFlavorId }),
       });
       if (!generateRes.ok) {
         const text = await generateRes.text();
@@ -128,27 +125,17 @@ export default function TestRunner({ flavors, accessToken }: Props) {
       const generateData = await generateRes.json();
       addLog("success", "Captions generated!");
 
-      // Extract captions from response
+      // Extract caption text from the response array
       const captionTexts: string[] = [];
-      if (Array.isArray(generateData)) {
-        generateData.forEach((item: { caption_text?: string; caption?: string }) => {
-          const text = item.caption_text ?? item.caption;
+      const items = Array.isArray(generateData) ? generateData : generateData.captions ?? [];
+      items.forEach((item: { content?: string; caption_text?: string; caption?: string } | string) => {
+        if (typeof item === "string") {
+          captionTexts.push(item);
+        } else {
+          const text = item.content ?? item.caption_text ?? item.caption;
           if (text) captionTexts.push(text);
-        });
-      } else if (generateData.captions && Array.isArray(generateData.captions)) {
-        generateData.captions.forEach((item: { caption_text?: string; caption?: string } | string) => {
-          if (typeof item === "string") {
-            captionTexts.push(item);
-          } else {
-            const text = item.caption_text ?? item.caption;
-            if (text) captionTexts.push(text);
-          }
-        });
-      } else if (generateData.caption_text) {
-        captionTexts.push(generateData.caption_text);
-      } else if (generateData.caption) {
-        captionTexts.push(generateData.caption);
-      }
+        }
+      });
 
       if (captionTexts.length === 0) {
         addLog("info", `Raw response: ${JSON.stringify(generateData).slice(0, 300)}`);
