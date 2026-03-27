@@ -10,6 +10,8 @@ interface Step {
   description: string | null;
   llm_model_id: number | null;
   llm_input_type_id: number | null;
+  llm_output_type_id: number | null;
+  humor_flavor_step_type_id: number | null;
   llm_temperature: number | null;
   llm_system_prompt: string | null;
   llm_user_prompt: string | null;
@@ -26,11 +28,25 @@ interface InputType {
   slug: string;
 }
 
+interface OutputType {
+  id: number;
+  description: string;
+  slug: string;
+}
+
+interface StepType {
+  id: number;
+  slug: string;
+  description: string;
+}
+
 interface Props {
   flavorId: number;
   steps: Step[];
   models: Model[];
   inputTypes: InputType[];
+  outputTypes: OutputType[];
+  stepTypes: StepType[];
 }
 
 function StepForm({
@@ -39,6 +55,8 @@ function StepForm({
   step,
   models,
   inputTypes,
+  outputTypes,
+  stepTypes,
   onSubmit,
   onCancel,
   isPending,
@@ -49,17 +67,23 @@ function StepForm({
   step?: Step;
   models: Model[];
   inputTypes: InputType[];
+  outputTypes: OutputType[];
+  stepTypes: StepType[];
   onSubmit: (fd: FormData) => void;
   onCancel: () => void;
   isPending: boolean;
   submitLabel: string;
 }) {
+  const selectClass =
+    "w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
+
   return (
     <form action={onSubmit} className="space-y-4">
       {step && <input type="hidden" name="id" value={step.id} />}
       <input type="hidden" name="humor_flavor_id" value={flavorId} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Row 1: Order (create only) + Step Type + Model */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {!step && (
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
@@ -71,10 +95,50 @@ function StepForm({
               required
               defaultValue={defaultOrderBy ?? 1}
               min={1}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={selectClass}
             />
           </div>
         )}
+
+        <div>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+            Step Type <span className="text-red-500">*</span>
+          </label>
+          <select
+            name="humor_flavor_step_type_id"
+            required
+            defaultValue={step?.humor_flavor_step_type_id ?? ""}
+            className={selectClass}
+          >
+            <option value="">— select step type —</option>
+            {stepTypes.map((t) => (
+              <option key={t.id} value={t.id} title={t.description}>
+                {t.slug}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+            LLM Model <span className="text-red-500">*</span>
+          </label>
+          <select
+            name="llm_model_id"
+            required
+            defaultValue={step?.llm_model_id ?? ""}
+            className={selectClass}
+          >
+            <option value="">— select model —</option>
+            {models.map((m) => (
+              <option key={m.id} value={m.id}>{m.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Row 2: Input Type + Output Type + Temperature */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
             Input Type <span className="text-red-500">*</span>
@@ -83,7 +147,7 @@ function StepForm({
             name="llm_input_type_id"
             required
             defaultValue={step?.llm_input_type_id ?? ""}
-            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={selectClass}
           >
             <option value="">— select input type —</option>
             {inputTypes.map((t) => (
@@ -91,19 +155,24 @@ function StepForm({
             ))}
           </select>
         </div>
+
         <div>
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">LLM Model</label>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+            Output Type <span className="text-red-500">*</span>
+          </label>
           <select
-            name="llm_model_id"
-            defaultValue={step?.llm_model_id ?? ""}
-            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            name="llm_output_type_id"
+            required
+            defaultValue={step?.llm_output_type_id ?? ""}
+            className={selectClass}
           >
-            <option value="">— select model —</option>
-            {models.map((m) => (
-              <option key={m.id} value={m.id}>{m.name}</option>
+            <option value="">— select output type —</option>
+            {outputTypes.map((t) => (
+              <option key={t.id} value={t.id}>{t.description}</option>
             ))}
           </select>
         </div>
+
         <div>
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Temperature</label>
           <input
@@ -114,21 +183,23 @@ function StepForm({
             max="2"
             defaultValue={step?.llm_temperature ?? ""}
             placeholder="0.7"
-            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={selectClass}
           />
         </div>
       </div>
 
+      {/* Description */}
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Description</label>
         <input
           name="description"
           defaultValue={step?.description ?? ""}
           placeholder="What does this step do?"
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className={selectClass}
         />
       </div>
 
+      {/* System Prompt */}
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">System Prompt</label>
         <textarea
@@ -140,13 +211,14 @@ function StepForm({
         />
       </div>
 
+      {/* User Prompt */}
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">User Prompt</label>
         <textarea
           name="llm_user_prompt"
           rows={4}
           defaultValue={step?.llm_user_prompt ?? ""}
-          placeholder="The prompt sent to the model. Use {{input}} to reference the previous step's output…"
+          placeholder="The prompt sent to the model…"
           className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
         />
       </div>
@@ -171,7 +243,7 @@ function StepForm({
   );
 }
 
-export default function StepsManager({ flavorId, steps, models, inputTypes }: Props) {
+export default function StepsManager({ flavorId, steps, models, inputTypes, outputTypes, stepTypes }: Props) {
   const [isPending, startTransition] = useTransition();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -179,8 +251,11 @@ export default function StepsManager({ flavorId, steps, models, inputTypes }: Pr
 
   const maxOrder = steps.length > 0 ? Math.max(...steps.map((s) => s.order_by)) : 0;
 
-  // Build a lookup map for display
+  // Lookup maps for display
   const inputTypeMap = Object.fromEntries(inputTypes.map((t) => [t.id, t.description]));
+  const outputTypeMap = Object.fromEntries(outputTypes.map((t) => [t.id, t.description]));
+  const stepTypeMap = Object.fromEntries(stepTypes.map((t) => [t.id, t.slug]));
+  const modelMap = Object.fromEntries(models.map((m) => [m.id, m.name]));
 
   const handleCreate = (formData: FormData) => {
     setError(null);
@@ -227,6 +302,8 @@ export default function StepsManager({ flavorId, steps, models, inputTypes }: Pr
 
   const sortedSteps = [...steps].sort((a, b) => a.order_by - b.order_by);
 
+  const sharedFormProps = { models, inputTypes, outputTypes, stepTypes };
+
   return (
     <div>
       {error && (
@@ -235,7 +312,6 @@ export default function StepsManager({ flavorId, steps, models, inputTypes }: Pr
         </div>
       )}
 
-      {/* Steps list */}
       <div className="space-y-3 mb-6">
         {sortedSteps.length === 0 && (
           <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
@@ -258,8 +334,7 @@ export default function StepsManager({ flavorId, steps, models, inputTypes }: Pr
                 <StepForm
                   flavorId={flavorId}
                   step={step}
-                  models={models}
-                  inputTypes={inputTypes}
+                  {...sharedFormProps}
                   onSubmit={handleUpdate}
                   onCancel={() => setEditingId(null)}
                   isPending={isPending}
@@ -268,7 +343,7 @@ export default function StepsManager({ flavorId, steps, models, inputTypes }: Pr
               </div>
             ) : (
               <div>
-                {/* Step header */}
+                {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800/50">
                   <div className="flex items-center gap-3">
                     <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center justify-center">
@@ -279,53 +354,49 @@ export default function StepsManager({ flavorId, steps, models, inputTypes }: Pr
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
-                    {/* Reorder buttons */}
-                    <button
-                      onClick={() => handleReorder(step, "up")}
-                      disabled={isPending || idx === 0}
-                      title="Move up"
-                      className="p-1.5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 transition-colors"
-                    >
-                      ▲
-                    </button>
-                    <button
-                      onClick={() => handleReorder(step, "down")}
-                      disabled={isPending || idx === sortedSteps.length - 1}
-                      title="Move down"
-                      className="p-1.5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 transition-colors"
-                    >
-                      ▼
-                    </button>
-                    <button
-                      onClick={() => setEditingId(step.id)}
-                      className="px-2.5 py-1 text-xs bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors ml-1"
-                    >
+                    <button onClick={() => handleReorder(step, "up")} disabled={isPending || idx === 0} title="Move up"
+                      className="p-1.5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 transition-colors">▲</button>
+                    <button onClick={() => handleReorder(step, "down")} disabled={isPending || idx === sortedSteps.length - 1} title="Move down"
+                      className="p-1.5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 transition-colors">▼</button>
+                    <button onClick={() => setEditingId(step.id)}
+                      className="px-2.5 py-1 text-xs bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors ml-1">
                       ✏️ Edit
                     </button>
-                    <button
-                      onClick={() => handleDelete(step.id)}
-                      disabled={isPending}
-                      className="px-2.5 py-1 text-xs bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
-                    >
+                    <button onClick={() => handleDelete(step.id)} disabled={isPending}
+                      className="px-2.5 py-1 text-xs bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors">
                       🗑️
                     </button>
                   </div>
                 </div>
 
-                {/* Step details */}
-                <div className="px-4 py-3 grid grid-cols-2 gap-3 text-xs">
+                {/* Details */}
+                <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                   <div>
-                    <span className="text-gray-400 dark:text-gray-500">Input Type: </span>
-                    <span className="text-gray-700 dark:text-gray-300">
-                      {step.llm_input_type_id ? (inputTypeMap[step.llm_input_type_id] ?? step.llm_input_type_id) : "—"}
+                    <span className="text-gray-400 dark:text-gray-500">Step Type: </span>
+                    <span className="text-gray-700 dark:text-gray-300 font-mono">
+                      {step.humor_flavor_step_type_id ? (stepTypeMap[step.humor_flavor_step_type_id] ?? "—") : "—"}
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-400 dark:text-gray-500">Temp: </span>
-                    <span className="text-gray-700 dark:text-gray-300">{step.llm_temperature ?? "—"}</span>
+                    <span className="text-gray-400 dark:text-gray-500">Model: </span>
+                    <span className="text-gray-700 dark:text-gray-300">
+                      {step.llm_model_id ? (modelMap[step.llm_model_id] ?? step.llm_model_id) : "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 dark:text-gray-500">Input: </span>
+                    <span className="text-gray-700 dark:text-gray-300">
+                      {step.llm_input_type_id ? (inputTypeMap[step.llm_input_type_id] ?? "—") : "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 dark:text-gray-500">Output: </span>
+                    <span className="text-gray-700 dark:text-gray-300">
+                      {step.llm_output_type_id ? (outputTypeMap[step.llm_output_type_id] ?? "—") : "—"}
+                    </span>
                   </div>
                   {step.llm_system_prompt && (
-                    <div className="col-span-2">
+                    <div className="col-span-2 sm:col-span-4">
                       <div className="text-gray-400 dark:text-gray-500 mb-1">System Prompt:</div>
                       <pre className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap font-mono bg-gray-50 dark:bg-gray-800 rounded p-2 text-xs overflow-auto max-h-24">
                         {step.llm_system_prompt}
@@ -333,7 +404,7 @@ export default function StepsManager({ flavorId, steps, models, inputTypes }: Pr
                     </div>
                   )}
                   {step.llm_user_prompt && (
-                    <div className="col-span-2">
+                    <div className="col-span-2 sm:col-span-4">
                       <div className="text-gray-400 dark:text-gray-500 mb-1">User Prompt:</div>
                       <pre className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap font-mono bg-gray-50 dark:bg-gray-800 rounded p-2 text-xs overflow-auto max-h-24">
                         {step.llm_user_prompt}
@@ -347,7 +418,7 @@ export default function StepsManager({ flavorId, steps, models, inputTypes }: Pr
         ))}
       </div>
 
-      {/* Add step button / form */}
+      {/* Add step */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
         <button
           onClick={() => setShowCreate(!showCreate)}
@@ -362,8 +433,7 @@ export default function StepsManager({ flavorId, steps, models, inputTypes }: Pr
             <StepForm
               flavorId={flavorId}
               defaultOrderBy={maxOrder + 1}
-              models={models}
-              inputTypes={inputTypes}
+              {...sharedFormProps}
               onSubmit={handleCreate}
               onCancel={() => setShowCreate(false)}
               isPending={isPending}

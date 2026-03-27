@@ -11,7 +11,14 @@ export default async function FlavorDetailPage({ params }: { params: Promise<{ i
 
   const supabase = await createClient();
 
-  const [{ data: flavor }, { data: steps }, { data: models }, { data: inputTypes }] = await Promise.all([
+  const [
+    { data: flavor },
+    { data: steps },
+    { data: models },
+    { data: inputTypes },
+    { data: outputTypes },
+    { data: stepTypes },
+  ] = await Promise.all([
     supabase
       .from("humor_flavors")
       .select("id, slug, description")
@@ -19,7 +26,7 @@ export default async function FlavorDetailPage({ params }: { params: Promise<{ i
       .single(),
     supabase
       .from("humor_flavor_steps")
-      .select("id, humor_flavor_id, order_by, description, llm_model_id, llm_input_type_id, llm_temperature, llm_system_prompt, llm_user_prompt")
+      .select("id, humor_flavor_id, order_by, description, llm_model_id, llm_input_type_id, llm_output_type_id, humor_flavor_step_type_id, llm_temperature, llm_system_prompt, llm_user_prompt")
       .eq("humor_flavor_id", flavorId)
       .order("order_by"),
     supabase
@@ -29,6 +36,14 @@ export default async function FlavorDetailPage({ params }: { params: Promise<{ i
     supabase
       .from("llm_input_types")
       .select("id, description, slug")
+      .order("id"),
+    supabase
+      .from("llm_output_types")
+      .select("id, description, slug")
+      .order("id"),
+    supabase
+      .from("humor_flavor_step_types")
+      .select("id, slug, description")
       .order("id"),
   ]);
 
@@ -70,6 +85,8 @@ export default async function FlavorDetailPage({ params }: { params: Promise<{ i
           steps={steps ?? []}
           models={models ?? []}
           inputTypes={inputTypes ?? []}
+          outputTypes={outputTypes ?? []}
+          stepTypes={stepTypes ?? []}
         />
       </div>
     </div>

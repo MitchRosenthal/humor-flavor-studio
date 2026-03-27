@@ -9,7 +9,9 @@ export async function createStep(formData: FormData): Promise<{ error: string } 
   const order_by = parseInt(formData.get("order_by") as string, 10);
   const description = (formData.get("description") as string).trim() || null;
   const llm_input_type_id = formData.get("llm_input_type_id") ? parseInt(formData.get("llm_input_type_id") as string, 10) : null;
+  const llm_output_type_id = formData.get("llm_output_type_id") ? parseInt(formData.get("llm_output_type_id") as string, 10) : null;
   const llm_model_id = formData.get("llm_model_id") ? parseInt(formData.get("llm_model_id") as string, 10) : null;
+  const humor_flavor_step_type_id = formData.get("humor_flavor_step_type_id") ? parseInt(formData.get("humor_flavor_step_type_id") as string, 10) : null;
   const llm_temperature = formData.get("llm_temperature") ? parseFloat(formData.get("llm_temperature") as string) : null;
   const llm_system_prompt = (formData.get("llm_system_prompt") as string).trim() || null;
   const llm_user_prompt = (formData.get("llm_user_prompt") as string).trim() || null;
@@ -19,7 +21,9 @@ export async function createStep(formData: FormData): Promise<{ error: string } 
     order_by,
     description,
     llm_input_type_id,
+    llm_output_type_id,
     llm_model_id,
+    humor_flavor_step_type_id,
     llm_temperature,
     llm_system_prompt,
     llm_user_prompt,
@@ -36,14 +40,16 @@ export async function updateStep(formData: FormData): Promise<{ error: string } 
   const humor_flavor_id = parseInt(formData.get("humor_flavor_id") as string, 10);
   const description = (formData.get("description") as string).trim() || null;
   const llm_input_type_id = formData.get("llm_input_type_id") ? parseInt(formData.get("llm_input_type_id") as string, 10) : null;
+  const llm_output_type_id = formData.get("llm_output_type_id") ? parseInt(formData.get("llm_output_type_id") as string, 10) : null;
   const llm_model_id = formData.get("llm_model_id") ? parseInt(formData.get("llm_model_id") as string, 10) : null;
+  const humor_flavor_step_type_id = formData.get("humor_flavor_step_type_id") ? parseInt(formData.get("humor_flavor_step_type_id") as string, 10) : null;
   const llm_temperature = formData.get("llm_temperature") ? parseFloat(formData.get("llm_temperature") as string) : null;
   const llm_system_prompt = (formData.get("llm_system_prompt") as string).trim() || null;
   const llm_user_prompt = (formData.get("llm_user_prompt") as string).trim() || null;
 
   const { error } = await supabase
     .from("humor_flavor_steps")
-    .update({ description, llm_input_type_id, llm_model_id, llm_temperature, llm_system_prompt, llm_user_prompt })
+    .update({ description, llm_input_type_id, llm_output_type_id, llm_model_id, humor_flavor_step_type_id, llm_temperature, llm_system_prompt, llm_user_prompt })
     .eq("id", id);
 
   if (error) return { error: error.message };
