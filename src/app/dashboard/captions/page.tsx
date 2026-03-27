@@ -13,8 +13,8 @@ export default async function CaptionsPage() {
       .order("slug"),
     supabase
       .from("captions")
-      .select("id, image_id, caption_text, humor_flavor_id, created_at")
-      .order("created_at", { ascending: false })
+      .select("id, image_id, content, humor_flavor_id, created_datetime_utc")
+      .order("created_datetime_utc", { ascending: false })
       .limit(200),
   ]);
 

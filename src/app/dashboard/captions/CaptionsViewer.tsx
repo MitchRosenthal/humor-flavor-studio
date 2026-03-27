@@ -10,9 +10,9 @@ interface Flavor {
 interface Caption {
   id: number;
   image_id: string | null;
-  caption_text: string | null;
+  content: string | null;
   humor_flavor_id: number | null;
-  created_at: string;
+  created_datetime_utc: string;
 }
 
 interface Props {
@@ -98,11 +98,11 @@ export default function CaptionsViewer({ flavors, captions }: Props) {
                   )}
                 </div>
                 <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap flex-shrink-0">
-                  {new Date(caption.created_at).toLocaleString()}
+                  {new Date(caption.created_datetime_utc).toLocaleString()}
                 </span>
               </div>
               <p className="text-gray-800 dark:text-gray-200 text-sm leading-relaxed">
-                {caption.caption_text ?? <span className="italic text-gray-400">No caption text</span>}
+                {caption.content ?? <span className="italic text-gray-400">No caption text</span>}
               </p>
             </div>
           ))}
