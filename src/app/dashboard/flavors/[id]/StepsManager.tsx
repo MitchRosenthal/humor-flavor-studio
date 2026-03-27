@@ -157,7 +157,7 @@ export default function StepsManager({ flavorId, steps, models }: Props) {
     setError(null);
     startTransition(async () => {
       const result = await createStep(formData);
-      if (result && "error" in result) setError(result.error ?? null);
+      if (result && "error" in result) setError(result.error);
       else setShowCreate(false);
     });
   };
@@ -166,7 +166,7 @@ export default function StepsManager({ flavorId, steps, models }: Props) {
     setError(null);
     startTransition(async () => {
       const result = await updateStep(formData);
-      if (result && "error" in result) setError(result.error ?? null);
+      if (result && "error" in result) setError(result.error);
       else setEditingId(null);
     });
   };
@@ -179,7 +179,7 @@ export default function StepsManager({ flavorId, steps, models }: Props) {
     formData.set("humor_flavor_id", String(flavorId));
     startTransition(async () => {
       const result = await deleteStep(formData);
-      if (result && "error" in result) setError(result.error ?? null);
+      if (result && "error" in result) setError(result.error);
     });
   };
 
@@ -192,7 +192,7 @@ export default function StepsManager({ flavorId, steps, models }: Props) {
     formData.set("direction", direction);
     startTransition(async () => {
       const result = await reorderStep(formData);
-      if (result && "error" in result) setError(result.error ?? null);
+      if (result && "error" in result) setError(result.error);
     });
   };
 

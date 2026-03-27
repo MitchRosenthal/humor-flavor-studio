@@ -22,7 +22,7 @@ export default function FlavorsManager({ flavors }: { flavors: Flavor[] }) {
     setError(null);
     startTransition(async () => {
       const result = await createFlavor(formData);
-      if (result && "error" in result) setError(result.error ?? null);
+      if (result && "error" in result) setError(result.error);
       else setShowCreate(false);
     });
   };
@@ -31,7 +31,7 @@ export default function FlavorsManager({ flavors }: { flavors: Flavor[] }) {
     setError(null);
     startTransition(async () => {
       const result = await updateFlavor(formData);
-      if (result && "error" in result) setError(result.error ?? null);
+      if (result && "error" in result) setError(result.error);
       else setEditingId(null);
     });
   };
@@ -43,7 +43,7 @@ export default function FlavorsManager({ flavors }: { flavors: Flavor[] }) {
     formData.set("id", String(id));
     startTransition(async () => {
       const result = await deleteFlavor(formData);
-      if (result && "error" in result) setError(result.error ?? null);
+      if (result && "error" in result) setError(result.error);
     });
   };
 

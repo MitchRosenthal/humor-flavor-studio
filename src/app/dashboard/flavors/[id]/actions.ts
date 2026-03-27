@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-export async function createStep(formData: FormData) {
+export async function createStep(formData: FormData): Promise<{ error: string } | { success: true }> {
   const supabase = await createClient();
   const humor_flavor_id = parseInt(formData.get("humor_flavor_id") as string, 10);
   const order_by = parseInt(formData.get("order_by") as string, 10);
@@ -28,7 +28,7 @@ export async function createStep(formData: FormData) {
   return { success: true };
 }
 
-export async function updateStep(formData: FormData) {
+export async function updateStep(formData: FormData): Promise<{ error: string } | { success: true }> {
   const supabase = await createClient();
   const id = parseInt(formData.get("id") as string, 10);
   const humor_flavor_id = parseInt(formData.get("humor_flavor_id") as string, 10);
@@ -48,7 +48,7 @@ export async function updateStep(formData: FormData) {
   return { success: true };
 }
 
-export async function deleteStep(formData: FormData) {
+export async function deleteStep(formData: FormData): Promise<{ error: string } | { success: true }> {
   const supabase = await createClient();
   const id = parseInt(formData.get("id") as string, 10);
   const humor_flavor_id = formData.get("humor_flavor_id") as string;
@@ -63,7 +63,7 @@ export async function deleteStep(formData: FormData) {
   return { success: true };
 }
 
-export async function reorderStep(formData: FormData) {
+export async function reorderStep(formData: FormData): Promise<{ error: string } | { success: true }> {
   const supabase = await createClient();
   const id = parseInt(formData.get("id") as string, 10);
   const humor_flavor_id = parseInt(formData.get("humor_flavor_id") as string, 10);
