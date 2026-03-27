@@ -18,9 +18,11 @@ interface Caption {
 interface Props {
   flavors: Flavor[];
   captions: Caption[];
+  flavorCounts: Record<number, number>;
+  totalCount: number;
 }
 
-export default function CaptionsViewer({ flavors, captions }: Props) {
+export default function CaptionsViewer({ flavors, captions, flavorCounts, totalCount }: Props) {
   const [selectedFlavorId, setSelectedFlavorId] = useState<number | "all">("all");
 
   const filtered =
@@ -29,6 +31,9 @@ export default function CaptionsViewer({ flavors, captions }: Props) {
       : captions.filter((c) => c.humor_flavor_id === selectedFlavorId);
 
   const flavorMap = Object.fromEntries(flavors.map((f) => [f.id, f.slug]));
+
+  const selectedFlavorTotal =
+    selectedFlavorId === "all" ? totalCount : (flavorCounts[selectedFlavorId] ?? 0);
 
   return (
     <div>
@@ -46,10 +51,10 @@ export default function CaptionsViewer({ flavors, captions }: Props) {
                 : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
             }`}
           >
-            All ({captions.length})
+            All ({totalCount.toLocaleString()})
           </button>
           {flavors.map((f) => {
-            const count = captions.filter((c) => c.humor_flavor_id === f.id).length;
+            const count = flavorCounts[f.id] ?? 0;
             return (
               <button
                 key={f.id}
@@ -60,7 +65,7 @@ export default function CaptionsViewer({ flavors, captions }: Props) {
                     : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
                 }`}
               >
-                {f.slug} ({count})
+                {f.slug} ({count.toLocaleString()})
               </button>
             );
           })}
@@ -69,13 +74,25 @@ export default function CaptionsViewer({ flavors, captions }: Props) {
 
       {/* Caption count */}
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        Showing {filtered.length} caption{filtered.length !== 1 ? "s" : ""}
+        Showing {filtered.length} of {selectedFlavorTotal.toLocaleString()} caption{selectedFlavorTotal !== 1 ? "s" : ""}
+        {filtered.length < selectedFlavorTotal && (
+          <span className="ml-1 text-gray-400 dark:text-gray-500">(most recent 200 loaded)</span>
+        )}
       </p>
 
       {/* Caption list */}
       {filtered.length === 0 ? (
         <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
-          <p className="text-gray-400 dark:text-gray-500 text-sm">No captions found.</p>
+          {selectedFlavorTotal > 0 ? (
+            <>
+              <p className="text-gray-400 dark:text-gray-500 text-sm">
+                This flavor has {selectedFlavorTotal.toLocaleString()} caption{selectedFlavorTotal !== 1 ? "s" : ""}, but none appear in the most recent 200 loaded.
+              </p>
+              <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Older captions are not shown in this view.</p>
+            </>
+          ) : (
+            <p className="text-gray-400 dark:text-gray-500 text-sm">No captions found.</p>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
