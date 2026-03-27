@@ -6,28 +6,29 @@ export const revalidate = 0;
 export default async function CaptionsPage() {
   const supabase = await createClient();
 
-  const [{ data: flavors }, { data: captions }, { data: allIds }] = await Promise.all([
-    supabase
-      .from("humor_flavors")
-      .select("id, slug")
-      .order("slug"),
+  // Fetch flavors, recent captions, and total count in parallel
+  const [{ data: flavors }, { data: captions }, { count: totalCount }] = await Promise.all([
+    supabase.from("humor_flavors").select("id, slug").order("slug"),
     supabase
       .from("captions")
       .select("id, image_id, content, humor_flavor_id, created_datetime_utc")
       .order("created_datetime_utc", { ascending: false })
       .limit(200),
-    supabase
-      .from("captions")
-      .select("humor_flavor_id")
-      .not("humor_flavor_id", "is", null),
+    supabase.from("captions").select("*", { count: "exact", head: true }),
   ]);
 
-  // Build accurate per-flavor counts from full dataset
-  const flavorCounts: Record<number, number> = {};
-  for (const row of allIds ?? []) {
-    const fid = row.humor_flavor_id as number;
-    flavorCounts[fid] = (flavorCounts[fid] ?? 0) + 1;
-  }
+  // Get accurate per-flavor counts via parallel HEAD queries (no row data returned)
+  const flavorList = flavors ?? [];
+  const countPairs = await Promise.all(
+    flavorList.map(async (f) => {
+      const { count } = await supabase
+        .from("captions")
+        .select("*", { count: "exact", head: true })
+        .eq("humor_flavor_id", f.id);
+      return [f.id, count ?? 0] as [number, number];
+    })
+  );
+  const flavorCounts = Object.fromEntries(countPairs);
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -37,10 +38,10 @@ export default async function CaptionsPage() {
       </p>
 
       <CaptionsViewer
-        flavors={flavors ?? []}
+        flavors={flavorList}
         captions={captions ?? []}
         flavorCounts={flavorCounts}
-        totalCount={allIds?.length ?? 0}
+        totalCount={totalCount ?? 0}
       />
     </div>
   );
