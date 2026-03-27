@@ -6,14 +6,30 @@ export const revalidate = 0;
 export default async function TestPage() {
   const supabase = await createClient();
 
-  const { data: flavors } = await supabase
-    .from("humor_flavors")
-    .select("id, slug, description")
-    .order("slug");
+  const [{ data: flavors }, sessionResult] = await Promise.all([
+    supabase.from("humor_flavors").select("id, slug, description").order("slug"),
+    supabase.auth.getSession(),
+  ]);
 
-  // Get the access token to pass to the client component
-  const { data: { session } } = await supabase.auth.getSession();
-  const accessToken = session?.access_token ?? null;
+  const accessToken = sessionResult.data.session?.access_token ?? null;
+
+  // Fetch step counts for every flavor in parallel
+  const flavorList = flavors ?? [];
+  const stepCounts = await Promise.all(
+    flavorList.map((f) =>
+      supabase
+        .from("humor_flavor_steps")
+        .select("id", { count: "exact", head: true })
+        .eq("humor_flavor_id", f.id)
+        .then(({ count }) => ({ id: f.id, count: count ?? 0 }))
+    )
+  );
+  const stepCountMap = Object.fromEntries(stepCounts.map(({ id, count }) => [id, count]));
+
+  const flavorsWithCounts = flavorList.map((f) => ({
+    ...f,
+    stepCount: stepCountMap[f.id] ?? 0,
+  }));
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -22,7 +38,7 @@ export default async function TestPage() {
         Upload an image, select a humor flavor, and generate captions using the live API pipeline.
       </p>
 
-      <TestRunner flavors={flavors ?? []} accessToken={accessToken} />
+      <TestRunner flavors={flavorsWithCounts} accessToken={accessToken} />
     </div>
   );
 }

@@ -6,6 +6,7 @@ interface Flavor {
   id: number;
   slug: string;
   description: string | null;
+  stepCount: number;
 }
 
 interface Props {
@@ -15,7 +16,7 @@ interface Props {
 
 interface LogEntry {
   ts: string;
-  level: "info" | "success" | "error";
+  level: "info" | "success" | "error" | "debug";
   message: string;
 }
 
@@ -57,6 +58,17 @@ export default function TestRunner({ flavors, accessToken }: Props) {
     }
     if (!accessToken) {
       addLog("error", "No access token — please refresh the page.");
+      return;
+    }
+
+    const selectedFlavor = flavors.find((f) => f.id === selectedFlavorId);
+
+    // Pre-flight: block if flavor has no steps
+    if (selectedFlavor && selectedFlavor.stepCount === 0) {
+      addLog(
+        "error",
+        `Flavor "${selectedFlavor.slug}" has 0 steps configured. Go to the Flavor editor to add steps before running.`
+      );
       return;
     }
 
@@ -112,11 +124,13 @@ export default function TestRunner({ flavors, accessToken }: Props) {
       addLog("success", `Image registered. ID: ${imageId}`);
 
       // Step 4: Generate captions
-      addLog("info", `Step 4: Generating captions with flavor ID ${selectedFlavorId}…`);
+      const captionPayload = { imageId, humorFlavorId: selectedFlavorId };
+      addLog("debug", `Step 4 payload: ${JSON.stringify(captionPayload)}`);
+      addLog("info", `Step 4: Generating captions with flavor "${selectedFlavor?.slug}" (ID ${selectedFlavorId}, ${selectedFlavor?.stepCount} step(s))…`);
       const generateRes = await fetch(`${API_BASE}/pipeline/generate-captions`, {
         method: "POST",
         headers: authHeaders,
-        body: JSON.stringify({ imageId, humorFlavorId: selectedFlavorId }),
+        body: JSON.stringify(captionPayload),
       });
       if (!generateRes.ok) {
         const text = await generateRes.text();
@@ -138,7 +152,7 @@ export default function TestRunner({ flavors, accessToken }: Props) {
       });
 
       if (captionTexts.length === 0) {
-        addLog("info", `Raw response: ${JSON.stringify(generateData).slice(0, 300)}`);
+        addLog("info", `Raw response: ${JSON.stringify(generateData).slice(0, 500)}`);
       }
 
       setCaptions(captionTexts);
@@ -150,6 +164,7 @@ export default function TestRunner({ flavors, accessToken }: Props) {
   };
 
   const selectedFlavor = flavors.find((f) => f.id === selectedFlavorId);
+  const selectedHasNoSteps = selectedFlavor && selectedFlavor.stepCount === 0;
 
   return (
     <div className="space-y-6">
@@ -170,13 +185,27 @@ export default function TestRunner({ flavors, accessToken }: Props) {
             >
               <option value="">— select a flavor —</option>
               {flavors.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.slug}
+                <option key={f.id} value={f.id} disabled={f.stepCount === 0}>
+                  {f.slug} ({f.stepCount} step{f.stepCount !== 1 ? "s" : ""})
+                  {f.stepCount === 0 ? " — no steps" : ""}
                 </option>
               ))}
             </select>
             {selectedFlavor?.description && (
               <p className="mt-1 text-xs text-gray-400 dark:text-gray-500 truncate">{selectedFlavor.description}</p>
+            )}
+            {/* Warning banner for no-step flavors */}
+            {selectedHasNoSteps && (
+              <div className="mt-2 flex items-start gap-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                <span className="flex-shrink-0 mt-0.5">⚠️</span>
+                <span>
+                  This flavor has no steps configured. Visit the{" "}
+                  <a href={`/dashboard/flavors/${selectedFlavor.id}`} className="underline font-medium">
+                    Flavor editor
+                  </a>{" "}
+                  to add steps before running.
+                </span>
+              </div>
             )}
           </div>
 
@@ -217,7 +246,7 @@ export default function TestRunner({ flavors, accessToken }: Props) {
         <div className="mt-4">
           <button
             onClick={handleRun}
-            disabled={isRunning || !selectedFlavorId || !imageFile}
+            disabled={isRunning || !selectedFlavorId || !imageFile || !!selectedHasNoSteps}
             className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {isRunning ? (
@@ -246,10 +275,19 @@ export default function TestRunner({ flavors, accessToken }: Props) {
                       ? "text-red-400"
                       : entry.level === "success"
                       ? "text-green-400"
+                      : entry.level === "debug"
+                      ? "text-cyan-500"
                       : "text-gray-300"
                   }
                 >
-                  {entry.level === "error" ? "✗" : entry.level === "success" ? "✓" : "→"} {entry.message}
+                  {entry.level === "error"
+                    ? "✗"
+                    : entry.level === "success"
+                    ? "✓"
+                    : entry.level === "debug"
+                    ? "⬡"
+                    : "→"}{" "}
+                  {entry.message}
                 </span>
               </div>
             ))}
