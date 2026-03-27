@@ -11,7 +11,7 @@ export default async function FlavorDetailPage({ params }: { params: Promise<{ i
 
   const supabase = await createClient();
 
-  const [{ data: flavor }, { data: steps }, { data: models }] = await Promise.all([
+  const [{ data: flavor }, { data: steps }, { data: models }, { data: inputTypes }] = await Promise.all([
     supabase
       .from("humor_flavors")
       .select("id, slug, description")
@@ -19,11 +19,15 @@ export default async function FlavorDetailPage({ params }: { params: Promise<{ i
       .single(),
     supabase
       .from("humor_flavor_steps")
-      .select("id, humor_flavor_id, order_by, description, llm_model_id, llm_temperature, llm_system_prompt, llm_user_prompt")
+      .select("id, humor_flavor_id, order_by, description, llm_model_id, llm_input_type_id, llm_temperature, llm_system_prompt, llm_user_prompt")
       .eq("humor_flavor_id", flavorId)
       .order("order_by"),
     supabase
       .from("llm_models")
+      .select("id, name")
+      .order("name"),
+    supabase
+      .from("llm_input_types")
       .select("id, name")
       .order("name"),
   ]);
@@ -65,6 +69,7 @@ export default async function FlavorDetailPage({ params }: { params: Promise<{ i
           flavorId={flavorId}
           steps={steps ?? []}
           models={models ?? []}
+          inputTypes={inputTypes ?? []}
         />
       </div>
     </div>

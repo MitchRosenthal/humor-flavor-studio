@@ -9,6 +9,7 @@ interface Step {
   order_by: number;
   description: string | null;
   llm_model_id: number | null;
+  llm_input_type_id: number | null;
   llm_temperature: number | null;
   llm_system_prompt: string | null;
   llm_user_prompt: string | null;
@@ -19,10 +20,16 @@ interface Model {
   name: string;
 }
 
+interface InputType {
+  id: number;
+  name: string;
+}
+
 interface Props {
   flavorId: number;
   steps: Step[];
   models: Model[];
+  inputTypes: InputType[];
 }
 
 function StepForm({
@@ -30,6 +37,7 @@ function StepForm({
   defaultOrderBy,
   step,
   models,
+  inputTypes,
   onSubmit,
   onCancel,
   isPending,
@@ -39,6 +47,7 @@ function StepForm({
   defaultOrderBy?: number;
   step?: Step;
   models: Model[];
+  inputTypes: InputType[];
   onSubmit: (fd: FormData) => void;
   onCancel: () => void;
   isPending: boolean;
@@ -49,7 +58,7 @@ function StepForm({
       {step && <input type="hidden" name="id" value={step.id} />}
       <input type="hidden" name="humor_flavor_id" value={flavorId} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {!step && (
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
@@ -65,6 +74,22 @@ function StepForm({
             />
           </div>
         )}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+            Input Type <span className="text-red-500">*</span>
+          </label>
+          <select
+            name="llm_input_type_id"
+            required
+            defaultValue={step?.llm_input_type_id ?? ""}
+            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">— select input type —</option>
+            {inputTypes.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">LLM Model</label>
           <select
@@ -145,13 +170,16 @@ function StepForm({
   );
 }
 
-export default function StepsManager({ flavorId, steps, models }: Props) {
+export default function StepsManager({ flavorId, steps, models, inputTypes }: Props) {
   const [isPending, startTransition] = useTransition();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const maxOrder = steps.length > 0 ? Math.max(...steps.map((s) => s.order_by)) : 0;
+
+  // Build a lookup map for display
+  const inputTypeMap = Object.fromEntries(inputTypes.map((t) => [t.id, t.name]));
 
   const handleCreate = (formData: FormData) => {
     setError(null);
@@ -230,6 +258,7 @@ export default function StepsManager({ flavorId, steps, models }: Props) {
                   flavorId={flavorId}
                   step={step}
                   models={models}
+                  inputTypes={inputTypes}
                   onSubmit={handleUpdate}
                   onCancel={() => setEditingId(null)}
                   isPending={isPending}
@@ -285,8 +314,10 @@ export default function StepsManager({ flavorId, steps, models }: Props) {
                 {/* Step details */}
                 <div className="px-4 py-3 grid grid-cols-2 gap-3 text-xs">
                   <div>
-                    <span className="text-gray-400 dark:text-gray-500">Model ID: </span>
-                    <span className="text-gray-700 dark:text-gray-300 font-mono">{step.llm_model_id ?? "—"}</span>
+                    <span className="text-gray-400 dark:text-gray-500">Input Type: </span>
+                    <span className="text-gray-700 dark:text-gray-300">
+                      {step.llm_input_type_id ? (inputTypeMap[step.llm_input_type_id] ?? step.llm_input_type_id) : "—"}
+                    </span>
                   </div>
                   <div>
                     <span className="text-gray-400 dark:text-gray-500">Temp: </span>
@@ -331,6 +362,7 @@ export default function StepsManager({ flavorId, steps, models }: Props) {
               flavorId={flavorId}
               defaultOrderBy={maxOrder + 1}
               models={models}
+              inputTypes={inputTypes}
               onSubmit={handleCreate}
               onCancel={() => setShowCreate(false)}
               isPending={isPending}
