@@ -53,22 +53,26 @@ POST /pipeline/generate-presigned-url
 Body: { "contentType": "image/jpeg" }
 Response: { "presignedUrl": "https://...", "cdnUrl": "https://presigned-url-uploads.almostcrackd.ai/<userId>/<file>.jpg" }
 
-### Step 2 — Upload Image to Presigned URL
+- presignedUrl: direct upload target (S3 signed URL)
+- cdnUrl: public URL of the uploaded image (used in Step 3)
 
-PUT <presignedUrl>   (direct to S3, NOT to api.almostcrackd.ai)
-Headers: Content-Type: <same as step 1>
-Body: raw file bytes
+### Step 2 — Upload Image Bytes to presignedUrl
 
-### Step 3 — Register Image in Pipeline
+PUT <presignedUrl>  (direct to S3, NOT to api.almostcrackd.ai)
+Content-Type must match what you sent in Step 1.
+
+### Step 3 — Register Image URL in the Pipeline
 
 POST /pipeline/upload-image-from-url
 Body: { "imageUrl": "<cdnUrl from step 1>", "isCommonUse": false }
 Response: { "imageId": "uuid", "now": 1738690000000 }
 
+Save imageId for the caption step.
+
 ### Step 4 — Generate Captions
 
 POST /pipeline/generate-captions
-Body: { "imageId": "uuid", "humorFlavorId": <id> }   (humorFlavorId is optional; omit to run all flavors)
+Body: { "imageId": "uuid" }   (humorFlavorId is optional — include to target a specific flavor)
 Response: array of caption records
 
 Supported image types: image/jpeg, image/jpg, image/png, image/webp, image/gif, image/heic
@@ -77,37 +81,55 @@ Supported image types: image/jpeg, image/jpg, image/png, image/webp, image/gif, 
 
 ## Database Domain Model
 
-Students have read-write access to `humor_flavors` and `humor_flavor_steps` (via authenticated Supabase client in server actions). All other tables should be treated as read-only — they are written by backend services (AI API, Matrix, Admin).
+**Official stance**: "All students have read-only access to Supabase." — however, the Matrix platform (and Mitchell's app) explicitly writes to humor_flavors and humor_flavor_steps via authenticated server actions. In practice, RLS grants write access to those two tables for authenticated users; everything else is read-only. The official docs mean: don't try to write to backend-owned tables (captions, images, llm_model_responses, etc.).
 
 ### Core Tables
 
-**`profiles`** — 1-to-1 with `auth.users`. Key fields: id, name, email, is_enabled, is_superadmin. Nearly every user action references profiles.id.
+**profiles** — 1-to-1 with auth.users. Key fields: id, name, email, is_enabled, is_superadmin. Nearly every user action references profiles.id.
 
-**`images`** — Foundational input. Fields: id, url, profile_id, is_public, is_common_use, image_description (cached AI output), celebrity_recognition (cached), embeddings. Expensive AI attributes are cached here and reused across requests.
+**images** — Foundational input. Fields: id, url, profile_id, is_public, is_common_use, image_description (cached AI output), celebrity_recognition (cached), embeddings. Expensive AI attributes are cached here and reused across requests.
 
-**`captions`** — Core output artifact. Links image + profile + humor_flavor_id + llm_prompt_chain_id + caption_request_id. Has is_public, is_featured, is_study_linked.
+**captions** — Core output artifact. Links image + profile + humor_flavor_id + llm_prompt_chain_id + caption_request_id. Has is_public, is_featured, is_study_linked.
 
-**`caption_requests`** — Entry point for all AI activity. One request -> multiple prompt chains -> multiple model responses -> multiple candidate captions.
+**caption_requests** — Entry point for all AI activity. One request -> multiple prompt chains -> multiple model responses -> multiple candidate captions.
 
-**`llm_prompt_chains`** — Groups a sequence of LLM steps for a single caption_request.
+**llm_prompt_chains** — Groups a sequence of LLM steps for a single caption_request.
 
-**`llm_model_responses`** — Low-level execution log: system/user prompts, model used, provider, processing time, temperature, which humor_flavor_step_id produced it. Treat as trace/debug data.
+**llm_model_responses** — Low-level execution log: system/user prompts, model used, provider, processing time, temperature, which humor_flavor_step_id produced it. Treat as trace/debug data.
 
 ### Humor Flavor Tables (writeable by students)
 
-**`humor_flavors`** — Columns: id, slug, description, created_by_user_id, modified_by_user_id, created_datetime_utc, modified_datetime_utc.
+**humor_flavors** — Columns: id, slug, description, created_by_user_id, modified_by_user_id, created_datetime_utc, modified_datetime_utc.
 - No profile_id column — join via created_by_user_id
 
-**`humor_flavor_steps`** — Columns: id, humor_flavor_id, order_by, humor_flavor_step_type_id, llm_model_id, llm_input_type_id, llm_output_type_id, llm_temperature, llm_system_prompt, llm_user_prompt.
+**humor_flavor_steps** — Columns: id, humor_flavor_id, order_by, humor_flavor_step_type_id, llm_model_id, llm_input_type_id, llm_output_type_id, llm_temperature, llm_system_prompt, llm_user_prompt.
 - All type ID columns are NOT NULL — must always be set on insert/update
 
-**`humor_flavor_step_types`** — Slugs: image-description, celebrity-recognition, general
+**humor_flavor_step_types** — Slugs: image-description, celebrity-recognition, general
 
-**`llm_models`** — Only query id, name (no slug column). Proven working IDs: 1,2,3,5,6,7,9,10,13,14,15,16,17,19. Broken IDs (crash with 502): 4,8,11,12,18,20.
+**llm_models** — Only query id, name (no slug column). Proven working IDs: 1,2,3,5,6,7,9,10,13,14,15,16,17,19. Broken IDs (crash with 502): 4,8,11,12,18,20.
 
-**`llm_input_types`** — Slugs: image-and-text, text-only
+**llm_input_types** — Slugs: image-and-text, text-only
 
-**`llm_output_types`** — Slugs: string, array
+**llm_output_types** — Slugs: string, array
+
+---
+
+## The Matrix
+
+The Matrix is Crackd's internal platform for flavor experimentation and testing.
+
+- **Develop flavors in staging, not production** (official recommendation)
+- Access is restricted — request via #need-access in Slack
+- Supports study image sets: curated image collections for controlled testing
+- Testing runs asynchronously (multiple images process in parallel)
+- Captions view exposes full prompt chain outputs including intermediate step responses, model used, temperature, and processing time
+
+### Loaded Values (Cost Optimization)
+
+image-description and celebrity-recognition step types are designed to reuse pre-computed results from Admin when available. If the same image was previously processed, these steps consume cached image_description / celebrity_recognition values from the images table rather than re-issuing LLM calls. If no cached value exists, the LLM call is made normally.
+
+**Implication for debugging**: If you see unexpected behavior on image-description or celebrity-recognition steps, the pipeline may be using a cached result from a previous run rather than re-running your prompt. This is by design.
 
 ---
 
@@ -167,6 +189,21 @@ Auto-fills input/output types and starter prompts on step type selection (STEP_T
 | column profile_id does not exist | Wrong column name | Use created_by_user_id not profile_id |
 | column slug does not exist on llm_models | No slug column | Query id, name only |
 | _crypto_aead_det_decrypt SQL error | Supabase editor wraps encrypted columns | Avoid joining on encrypted cols in SQL editor; use Management API instead |
+
+---
+
+## Other Domain Tables (read-only reference)
+
+These are read-only — written by backend services. Listed here for query context.
+
+- caption_likes, caption_votes, caption_saved, shares — behavioral engagement logs
+- reported_captions, reported_images — moderation
+- communities, community_contexts, community_context_tags — situational awareness / insider cultural context
+- study_caption_mappings, study_image_sets — research/study associations
+- terms, term_types — Gen-Z vocabulary reference
+- news_snippets, news_entities — real-world grounding
+- personalities, transcripts — style and voice research
+- allowed_signup_domains, invitations — access control
 
 ---
 
