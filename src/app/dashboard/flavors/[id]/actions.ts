@@ -12,7 +12,8 @@ export async function createStep(formData: FormData): Promise<{ error: string } 
   const llm_output_type_id = formData.get("llm_output_type_id") ? parseInt(formData.get("llm_output_type_id") as string, 10) : null;
   const llm_model_id = formData.get("llm_model_id") ? parseInt(formData.get("llm_model_id") as string, 10) : null;
   const humor_flavor_step_type_id = formData.get("humor_flavor_step_type_id") ? parseInt(formData.get("humor_flavor_step_type_id") as string, 10) : null;
-  const llm_temperature = formData.get("llm_temperature") ? parseFloat(formData.get("llm_temperature") as string) : null;
+  const rawTemp = formData.get("llm_temperature") as string;
+  const llm_temperature = rawTemp && rawTemp.trim() !== "" ? parseFloat(rawTemp) : 0.7;
   const llm_system_prompt = (formData.get("llm_system_prompt") as string).trim() || null;
   const llm_user_prompt = (formData.get("llm_user_prompt") as string).trim() || null;
 
@@ -43,7 +44,8 @@ export async function updateStep(formData: FormData): Promise<{ error: string } 
   const llm_output_type_id = formData.get("llm_output_type_id") ? parseInt(formData.get("llm_output_type_id") as string, 10) : null;
   const llm_model_id = formData.get("llm_model_id") ? parseInt(formData.get("llm_model_id") as string, 10) : null;
   const humor_flavor_step_type_id = formData.get("humor_flavor_step_type_id") ? parseInt(formData.get("humor_flavor_step_type_id") as string, 10) : null;
-  const llm_temperature = formData.get("llm_temperature") ? parseFloat(formData.get("llm_temperature") as string) : null;
+  const rawTempU = formData.get("llm_temperature") as string;
+  const llm_temperature = rawTempU && rawTempU.trim() !== "" ? parseFloat(rawTempU) : 0.7;
   const llm_system_prompt = (formData.get("llm_system_prompt") as string).trim() || null;
   const llm_user_prompt = (formData.get("llm_user_prompt") as string).trim() || null;
 
