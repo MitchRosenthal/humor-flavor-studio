@@ -29,9 +29,14 @@ export default async function FlavorDetailPage({ params }: { params: Promise<{ i
       .select("id, humor_flavor_id, order_by, description, llm_model_id, llm_input_type_id, llm_output_type_id, humor_flavor_step_type_id, llm_temperature, llm_system_prompt, llm_user_prompt")
       .eq("humor_flavor_id", flavorId)
       .order("order_by"),
+    // Only include models that have a proven track record (appear in llm_model_responses
+    // joined to captions). Others exist in the DB but crash the pipeline with a 502 on use.
+    // IDs sourced from: SELECT m.id FROM llm_model_responses r JOIN llm_models m ON m.id = r.llm_model_id
+    //                   JOIN captions c ON c.llm_prompt_chain_id = r.llm_prompt_chain_id GROUP BY m.id
     supabase
       .from("llm_models")
       .select("id, name")
+      .in("id", [1, 2, 3, 5, 6, 7, 9, 10, 13, 14, 15, 16, 17, 19])
       .order("name"),
     supabase
       .from("llm_input_types")
