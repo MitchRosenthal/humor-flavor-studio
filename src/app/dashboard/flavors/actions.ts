@@ -68,18 +68,27 @@ export async function duplicateFlavor(formData: FormData): Promise<{ error: stri
 
   const existingSlugs = new Set((existingFlavors ?? []).map((f: { slug: string }) => f.slug));
 
-  // Generate a unique slug by appending -copy, -copy-2, -copy-3, etc.
-  let newSlug = `${original.slug}-copy`;
-  let counter = 2;
-  while (existingSlugs.has(newSlug)) {
-    newSlug = `${original.slug}-copy-${counter}`;
-    counter++;
+  // Use the caller-supplied slug if provided, otherwise generate a unique one
+  const requestedSlug = (formData.get("newSlug") as string | null)?.trim().toLowerCase().replace(/\s+/g, "-");
+  let newSlug: string;
+  if (requestedSlug) {
+    newSlug = requestedSlug;
+  } else {
+    newSlug = `${original.slug}-copy`;
+    let counter = 2;
+    while (existingSlugs.has(newSlug)) {
+      newSlug = `${original.slug}-copy-${counter}`;
+      counter++;
+    }
   }
+
+  const requestedDescription = formData.get("newDescription") as string | null;
+  const newDescription = requestedDescription !== null ? requestedDescription.trim() : original.description;
 
   // Insert the new flavor
   const { data: newFlavor, error: insertError } = await supabase
     .from("humor_flavors")
-    .insert({ slug: newSlug, description: original.description })
+    .insert({ slug: newSlug, description: newDescription })
     .select("id")
     .single();
 

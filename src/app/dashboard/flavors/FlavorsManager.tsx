@@ -12,11 +12,21 @@ interface Flavor {
   _stepCount?: number;
 }
 
+interface DuplicateTarget {
+  id: number;
+  slug: string;
+  description: string | null;
+}
+
 export default function FlavorsManager({ flavors }: { flavors: Flavor[] }) {
   const [isPending, startTransition] = useTransition();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [duplicateTarget, setDuplicateTarget] = useState<DuplicateTarget | null>(null);
+  const [dupSlug, setDupSlug] = useState("");
+  const [dupDescription, setDupDescription] = useState("");
 
   const handleCreate = (formData: FormData) => {
     setError(null);
@@ -47,16 +57,45 @@ export default function FlavorsManager({ flavors }: { flavors: Flavor[] }) {
     });
   };
 
-  const handleDuplicate = (id: number, slug: string) => {
-    if (!confirm(`Duplicate flavor "${slug}" and all its steps?`)) return;
+  const openDuplicateModal = (flavor: Flavor) => {
+    setDuplicateTarget({ id: flavor.id, slug: flavor.slug, description: flavor.description });
+    setDupSlug(`${flavor.slug}-copy`);
+    setDupDescription(flavor.description ?? "");
+    setError(null);
+  };
+
+  const closeDuplicateModal = () => {
+    setDuplicateTarget(null);
+    setDupSlug("");
+    setDupDescription("");
+  };
+
+  const handleDuplicateConfirm = () => {
+    if (!duplicateTarget) return;
+    const trimmedSlug = dupSlug.trim().toLowerCase().replace(/\s+/g, "-");
+    if (!trimmedSlug) return;
     setError(null);
     const formData = new FormData();
-    formData.set("id", String(id));
+    formData.set("id", String(duplicateTarget.id));
+    formData.set("newSlug", trimmedSlug);
+    formData.set("newDescription", dupDescription.trim());
     startTransition(async () => {
       const result = await duplicateFlavor(formData);
-      if (result && "error" in result) setError(result.error);
+      if (result && "error" in result) {
+        setError(result.error);
+      } else {
+        closeDuplicateModal();
+      }
     });
   };
+
+  const filteredFlavors = flavors.filter((f) => {
+    const q = search.toLowerCase();
+    return (
+      f.slug.toLowerCase().includes(q) ||
+      (f.description ?? "").toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div>
@@ -66,8 +105,66 @@ export default function FlavorsManager({ flavors }: { flavors: Flavor[] }) {
         </div>
       )}
 
+      {/* Duplicate rename modal */}
+      {duplicateTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
+              Duplicate Flavor
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Copying &ldquo;{duplicateTarget.slug}&rdquo; and all its steps. Choose a new name below.
+            </p>
+
+            <div className="space-y-3 mb-5">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  New Slug <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={dupSlug}
+                  onChange={(e) => setDupSlug(e.target.value)}
+                  placeholder="e.g. dry-wit-copy"
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  Description
+                </label>
+                <input
+                  value={dupDescription}
+                  onChange={(e) => setDupDescription(e.target.value)}
+                  placeholder="Short description of this flavor"
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={closeDuplicateModal}
+                disabled={isPending}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDuplicateConfirm}
+                disabled={isPending || !dupSlug.trim()}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {isPending ? "Duplicating…" : "Duplicate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Create form */}
-      <div className="mb-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
+      <div className="mb-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
         <button
           onClick={() => setShowCreate(!showCreate)}
           className="w-full flex items-center gap-2 px-5 py-4 text-left text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
@@ -121,15 +218,39 @@ export default function FlavorsManager({ flavors }: { flavors: Flavor[] }) {
         )}
       </div>
 
+      {/* Search bar */}
+      <div className="mb-4 relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none">
+          🔍
+        </span>
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search flavors by name or description…"
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs"
+            aria-label="Clear search"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
       {/* Flavor list */}
       <div className="space-y-3">
-        {flavors.length === 0 && (
+        {filteredFlavors.length === 0 && (
           <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-8">
-            No humor flavors yet. Create one above.
+            {search ? `No flavors match "${search}".` : "No humor flavors yet. Create one above."}
           </p>
         )}
 
-        {flavors.map((flavor) =>
+        {filteredFlavors.map((flavor) =>
           editingId === flavor.id ? (
             // Edit form inline
             <form key={flavor.id} action={handleUpdate} className="bg-white dark:bg-gray-900 border border-blue-300 dark:border-blue-700 rounded-xl px-5 py-4">
@@ -189,7 +310,7 @@ export default function FlavorsManager({ flavors }: { flavors: Flavor[] }) {
                   ✏️ Edit
                 </button>
                 <button
-                  onClick={() => handleDuplicate(flavor.id, flavor.slug)}
+                  onClick={() => openDuplicateModal(flavor)}
                   disabled={isPending}
                   className="px-3 py-1.5 text-xs bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors font-medium disabled:opacity-50"
                 >
