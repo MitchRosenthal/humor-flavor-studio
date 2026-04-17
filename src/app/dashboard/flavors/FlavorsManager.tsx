@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition, useState } from "react";
-import { createFlavor, updateFlavor, deleteFlavor } from "./actions";
+import { createFlavor, updateFlavor, deleteFlavor, duplicateFlavor } from "./actions";
 import Link from "next/link";
 
 interface Flavor {
@@ -43,6 +43,17 @@ export default function FlavorsManager({ flavors }: { flavors: Flavor[] }) {
     formData.set("id", String(id));
     startTransition(async () => {
       const result = await deleteFlavor(formData);
+      if (result && "error" in result) setError(result.error);
+    });
+  };
+
+  const handleDuplicate = (id: number, slug: string) => {
+    if (!confirm(`Duplicate flavor "${slug}" and all its steps?`)) return;
+    setError(null);
+    const formData = new FormData();
+    formData.set("id", String(id));
+    startTransition(async () => {
+      const result = await duplicateFlavor(formData);
       if (result && "error" in result) setError(result.error);
     });
   };
@@ -176,6 +187,13 @@ export default function FlavorsManager({ flavors }: { flavors: Flavor[] }) {
                   className="px-3 py-1.5 text-xs bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors font-medium"
                 >
                   ✏️ Edit
+                </button>
+                <button
+                  onClick={() => handleDuplicate(flavor.id, flavor.slug)}
+                  disabled={isPending}
+                  className="px-3 py-1.5 text-xs bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors font-medium disabled:opacity-50"
+                >
+                  📋 Duplicate
                 </button>
                 <button
                   onClick={() => handleDelete(flavor.id, flavor.slug)}
