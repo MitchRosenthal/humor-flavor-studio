@@ -3,32 +3,44 @@ import CaptionsViewer from "./CaptionsViewer";
 
 export const revalidate = 0;
 
-export default async function CaptionsPage() {
+const PAGE_SIZE = 50;
+
+export default async function CaptionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ flavorId?: string; page?: string }>;
+}) {
+  const { flavorId, page: pageParam } = await searchParams;
   const supabase = await createClient();
 
-  // Fetch flavors, recent captions, and total count in parallel
-  const [{ data: flavors }, { data: captions }, { count: totalCount }] = await Promise.all([
-    supabase.from("humor_flavors").select("id, slug").order("slug"),
-    supabase
-      .from("captions")
-      .select("id, image_id, content, humor_flavor_id, created_datetime_utc")
-      .order("created_datetime_utc", { ascending: false })
-      .limit(200),
-    supabase.from("captions").select("*", { count: "exact", head: true }),
-  ]);
+  const selectedFlavorId = flavorId ? Number(flavorId) : null;
+  const page = Math.max(1, Number(pageParam ?? "1"));
+  const offset = (page - 1) * PAGE_SIZE;
 
-  // Get accurate per-flavor counts via parallel HEAD queries (no row data returned)
-  const flavorList = flavors ?? [];
-  const countPairs = await Promise.all(
-    flavorList.map(async (f) => {
-      const { count } = await supabase
-        .from("captions")
-        .select("*", { count: "exact", head: true })
-        .eq("humor_flavor_id", f.id);
-      return [f.id, count ?? 0] as [number, number];
+  // 1. All flavors — small table, fast
+  const { data: flavors } = await supabase
+    .from("humor_flavors")
+    .select("id, slug")
+    .order("slug");
+
+  // 2. One page of captions + accurate count for the current filter.
+  //    The count uses count:"exact" on the same filtered query, so we get
+  //    the real total in a single round-trip instead of N per-flavor HEADs.
+  let query = supabase
+    .from("captions")
+    .select("id, image_id, content, humor_flavor_id, created_datetime_utc", {
+      count: "exact",
     })
-  );
-  const flavorCounts = Object.fromEntries(countPairs);
+    .order("created_datetime_utc", { ascending: false })
+    .range(offset, offset + PAGE_SIZE - 1);
+
+  if (selectedFlavorId !== null) {
+    query = query.eq("humor_flavor_id", selectedFlavorId);
+  }
+
+  const { data: captions, count: totalCount } = await query;
+
+  const totalPages = Math.max(1, Math.ceil((totalCount ?? 0) / PAGE_SIZE));
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -38,10 +50,13 @@ export default async function CaptionsPage() {
       </p>
 
       <CaptionsViewer
-        flavors={flavorList}
+        flavors={flavors ?? []}
         captions={captions ?? []}
-        flavorCounts={flavorCounts}
         totalCount={totalCount ?? 0}
+        selectedFlavorId={selectedFlavorId}
+        page={page}
+        totalPages={totalPages}
+        pageSize={PAGE_SIZE}
       />
     </div>
   );

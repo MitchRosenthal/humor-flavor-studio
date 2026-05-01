@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { useTransition } from "react";
 
 interface Flavor {
   id: number;
@@ -18,85 +19,120 @@ interface Caption {
 interface Props {
   flavors: Flavor[];
   captions: Caption[];
-  flavorCounts: Record<number, number>;
   totalCount: number;
+  selectedFlavorId: number | null;
+  page: number;
+  totalPages: number;
+  pageSize: number;
 }
 
-export default function CaptionsViewer({ flavors, captions, flavorCounts, totalCount }: Props) {
-  const [selectedFlavorId, setSelectedFlavorId] = useState<number | "all">("all");
+export default function CaptionsViewer({
+  flavors,
+  captions,
+  totalCount,
+  selectedFlavorId,
+  page,
+  totalPages,
+  pageSize,
+}: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isPending, startTransition] = useTransition();
 
-  const filtered =
-    selectedFlavorId === "all"
-      ? captions
-      : captions.filter((c) => c.humor_flavor_id === selectedFlavorId);
+  function navigate(flavorId: number | null, toPage: number) {
+    const params = new URLSearchParams();
+    if (flavorId !== null) params.set("flavorId", String(flavorId));
+    if (toPage > 1) params.set("page", String(toPage));
+    const qs = params.toString();
+    startTransition(() => {
+      router.push(qs ? `${pathname}?${qs}` : pathname);
+    });
+  }
 
   const flavorMap = Object.fromEntries(flavors.map((f) => [f.id, f.slug]));
 
-  const selectedFlavorTotal =
-    selectedFlavorId === "all" ? totalCount : (flavorCounts[selectedFlavorId] ?? 0);
+  const rangeStart = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeEnd = Math.min(page * pageSize, totalCount);
 
   return (
-    <div>
+    <div className={isPending ? "opacity-60 pointer-events-none transition-opacity" : ""}>
       {/* Filter bar */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Filter by flavor:
-        </label>
+        </span>
         <div className="flex gap-2 flex-wrap">
           <button
-            onClick={() => setSelectedFlavorId("all")}
+            onClick={() => navigate(null, 1)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              selectedFlavorId === "all"
+              selectedFlavorId === null
                 ? "bg-blue-600 text-white"
                 : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
             }`}
           >
-            All ({totalCount.toLocaleString()})
+            All
           </button>
-          {flavors.map((f) => {
-            const count = flavorCounts[f.id] ?? 0;
-            return (
-              <button
-                key={f.id}
-                onClick={() => setSelectedFlavorId(f.id)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  selectedFlavorId === f.id
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-                }`}
-              >
-                {f.slug} ({count.toLocaleString()})
-              </button>
-            );
-          })}
+          {flavors.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => navigate(f.id, 1)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                selectedFlavorId === f.id
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+              }`}
+            >
+              {f.slug}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Caption count */}
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        Showing {filtered.length} of {selectedFlavorTotal.toLocaleString()} caption{selectedFlavorTotal !== 1 ? "s" : ""}
-        {filtered.length < selectedFlavorTotal && (
-          <span className="ml-1 text-gray-400 dark:text-gray-500">(most recent 200 loaded)</span>
+      {/* Summary row */}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {totalCount === 0
+            ? "No captions found"
+            : `Showing ${rangeStart.toLocaleString()}–${rangeEnd.toLocaleString()} of ${totalCount.toLocaleString()} caption${totalCount !== 1 ? "s" : ""}`}
+          {selectedFlavorId !== null && (
+            <span className="ml-1 text-gray-400 dark:text-gray-500">
+              for <span className="font-medium">{flavorMap[selectedFlavorId] ?? `Flavor ${selectedFlavorId}`}</span>
+            </span>
+          )}
+        </p>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate(selectedFlavorId, page - 1)}
+              disabled={page <= 1}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              ← Prev
+            </button>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              Page {page} of {totalPages.toLocaleString()}
+            </span>
+            <button
+              onClick={() => navigate(selectedFlavorId, page + 1)}
+              disabled={page >= totalPages}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Next →
+            </button>
+          </div>
         )}
-      </p>
+      </div>
 
       {/* Caption list */}
-      {filtered.length === 0 ? (
+      {captions.length === 0 ? (
         <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
-          {selectedFlavorTotal > 0 ? (
-            <>
-              <p className="text-gray-400 dark:text-gray-500 text-sm">
-                This flavor has {selectedFlavorTotal.toLocaleString()} caption{selectedFlavorTotal !== 1 ? "s" : ""}, but none appear in the most recent 200 loaded.
-              </p>
-              <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Older captions are not shown in this view.</p>
-            </>
-          ) : (
-            <p className="text-gray-400 dark:text-gray-500 text-sm">No captions found.</p>
-          )}
+          <p className="text-gray-400 dark:text-gray-500 text-sm">No captions found.</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((caption) => (
+          {captions.map((caption) => (
             <div
               key={caption.id}
               className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-5 py-4"
@@ -119,10 +155,35 @@ export default function CaptionsViewer({ flavors, captions, flavorCounts, totalC
                 </span>
               </div>
               <p className="text-gray-800 dark:text-gray-200 text-sm leading-relaxed">
-                {caption.content ?? <span className="italic text-gray-400">No caption text</span>}
+                {caption.content ?? (
+                  <span className="italic text-gray-400">No caption text</span>
+                )}
               </p>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Bottom pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 mt-6">
+          <button
+            onClick={() => navigate(selectedFlavorId, page - 1)}
+            disabled={page <= 1}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            ← Previous
+          </button>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            Page {page} of {totalPages.toLocaleString()}
+          </span>
+          <button
+            onClick={() => navigate(selectedFlavorId, page + 1)}
+            disabled={page >= totalPages}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Next →
+          </button>
         </div>
       )}
     </div>
