@@ -207,19 +207,6 @@ These are read-only — written by backend services. Listed here for query conte
 
 ---
 
-## Mitchell's Account
-
-- Email: yankeedude6050@gmail.com
-- Profile ID in staging DB: 33e5dd98-9071-4b07-9734-f1b62b2dd21f
-- Mitchell has 0 flavors in staging — all his data is in the production DB (uckvaiyrgouakgptuuzex)
-- Flavor 293 (dark-humor2) in staging: 0 steps, owned by a different user — always fails
-
-### If His Flavors Still 502
-
-Steps created before the model filter was deployed likely use a broken model ID. Quickest fix: delete existing steps and recreate from scratch using the current StepsManager (which now auto-fills everything and only shows safe models).
-
----
-
 ## Supabase Debugging Tips
 
 **Staging DB (accessible)** — use Management API from Supabase dashboard browser console:

@@ -65,3 +65,6 @@ For full schema details, refer to Supabase dashboard → Table Editor.
 4. Keep a running note of what changed when making multiple edits.
 5. Server actions live in `actions.ts` files beside their page.
 6. Use Server Components for data fetching; Client Components only when interactivity is required.
+
+## Portfolio documentation update
+- Added root README with project scope, access requirements, and local setup prerequisites. No runtime or authorization changes.
